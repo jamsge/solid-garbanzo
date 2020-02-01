@@ -1,0 +1,186 @@
+import Player from "./Player.js"
+import Cube from "./Cube.js"
+import Level from "./Level.js"
+
+export default class WorldHandler {
+    constructor(){
+        let collisionConfiguration  = new Ammo.btDefaultCollisionConfiguration(),
+            dispatcher              = new Ammo.btCollisionDispatcher(collisionConfiguration),
+            overlappingPairCache    = new Ammo.btDbvtBroadphase(),
+            solver                  = new Ammo.btSequentialImpulseConstraintSolver();
+   
+        this.physicsWorld = new Ammo.btDiscreteDynamicsWorld(dispatcher, overlappingPairCache, solver, collisionConfiguration);
+        this.physicsWorld.setGravity(new Ammo.btVector3(0, -40, 0));
+        this.renderer =  new THREE.WebGLRenderer({antialias:false});
+        this.renderer.setSize();
+
+        this.camera = new THREE.PerspectiveCamera(60,window.innerWidth/window.innerHeight,1,30000);
+        this.camera.rotation.y = -Math.PI/2
+
+        var domElement = this.renderer.domElement;
+        document.body.appendChild(domElement);
+        this.controls = new THREE.PointerLockControls( this.camera, domElement);
+
+        this.scene = new THREE.Scene(); 
+        this.scene.background = new THREE.CubeTextureLoader()
+            .setPath('../assets/')
+            .load([
+                "arid_bk.jpg",
+                "arid_ft.jpg",
+                "arid_up.jpg",
+                "arid_dn.jpg",
+                "arid_lf.jpg",
+                "arid_rt.jpg",
+            ])
+        
+
+        var light = new THREE.DirectionalLight( 0xffffff);
+        light.position.set( 3, 10, 3);
+        this.scene.add( light );
+    
+        light = new THREE.DirectionalLight( 0x002288 );
+        light.position.set( -1, -1, -1 );
+        this.scene.add( light );
+    
+        light = new THREE.AmbientLight( 0x222222, 2);
+        this.scene.add( light );
+
+        this.controls = new THREE.PointerLockControls( this.camera, domElement);
+        this.rigidBodies = [];
+        this.player = new Player(this.physicsWorld);
+        this.rigidBodies.push(this.player.getPlayerModel());
+        this.player.getPlayerModel().add(this.controls.getObject());
+        this.controls.getObject().position.y += 2
+
+        var cube = new Cube(this.physicsWorld);
+        this.scene.add(cube.getModel());
+        this.rigidBodies.push(cube.getModel());
+
+        var level = new Level(this.physicsWorld)
+        this.scene.add(level.getLevelModel());
+
+        this.clock = new THREE.Clock();
+        this.time = 0;
+
+        this.tmpTrans = new Ammo.btTransform();
+
+        // TODO: ADD EVENT LISTENER FOR WINDOW RESIZE
+        window.addEventListener( 'resize', this.onWindowResize, false );
+        
+    }
+
+    start(){
+        this.setupEventHandlers();
+        this.animate();
+    }
+
+    render(){
+        var deltaTime = this.clock.getDelta();
+        var direction = new THREE.Vector3(0,0,0);
+        this.camera.getWorldDirection(direction)
+        this.camera.updateProjectionMatrix()
+        this.player.controlPlayer(direction);
+        this.updatePhysics(deltaTime);
+        this.renderer.render(this.scene, this.camera);
+        this.time += deltaTime;
+    }
+
+    updatePhysics( deltaTime ){
+        // Step world
+        this.physicsWorld.stepSimulation( deltaTime, 10 );
+        
+        // Update rigid bodies
+        for ( let i = 0; i < this.rigidBodies.length; i++ ) {
+            let objThree = this.rigidBodies[ i ];
+            let objAmmo = objThree.userData.physicsBody;
+            let ms = objAmmo.getMotionState();
+            if ( ms ) {
+                ms.getWorldTransform( this.tmpTrans );
+                let p = this.tmpTrans.getOrigin();
+                let q = this.tmpTrans.getRotation();
+                objThree.position.set( p.x(), p.y(), p.z() );
+                objThree.quaternion.set( q.x(), q.y(), q.z(), q.w() );
+            }
+        }
+    }
+    animate(){
+        requestAnimationFrame(this.animate.bind(this));
+        this.render();
+    }
+    
+    
+    handleKeyDown(event){
+        let keyCode = event.keyCode;
+        switch(keyCode){
+    
+            case 87: //W: FORWARD
+                this.player.moveDirection.forward = 1
+                break;
+    
+            case 83: //S: BACK
+                this.player.moveDirection.back = 1
+                break;
+    
+            case 65: //A: LEFT
+                this.player.moveDirection.left = 1
+                break;
+    
+            case 68: //D: RIGHT
+                this.player.moveDirection.right = 1
+                break;
+
+            case 32:
+                this.player.moveDirection.up = 1;
+                break;
+            
+            case 70:
+                console.log("Locking pointer");
+                this.controls.lock();
+                break;
+        }
+    }
+    
+    
+    handleKeyUp(event){
+        let keyCode = event.keyCode;
+    
+        switch(keyCode){
+            case 87: //FORWARD
+                this.player.moveDirection.forward = 0
+                break;
+    
+            case 83: //BACK
+                this.player.moveDirection.back = 0
+                break;
+    
+            case 65: //LEFT
+                this.player.moveDirection.left = 0
+                break;
+    
+            case 68: //RIGHT
+                this.player.moveDirection.right = 0
+                break;
+            case 32:
+                this.player.moveDirection.up = 0
+                break;
+        }
+    } 
+
+    handleMouseDown(event){
+        
+    }
+
+    setupEventHandlers(){
+        window.addEventListener( 'keydown', this.handleKeyDown, false);
+        window.addEventListener( 'keyup', this.handleKeyUp, false);
+        window.addEventListener( 'mouseDown', this.handleMouseDown, false);
+    }
+
+    onWindowResize() {
+      this.camera.aspect = window.innerWidth / window.innerHeight;
+      this.camera.updateProjectionMatrix();
+      renderer.setSize( window.innerWidth, window.innerHeight );
+      render();
+    }
+}
+

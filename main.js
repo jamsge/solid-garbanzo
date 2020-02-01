@@ -19,6 +19,12 @@ Ammo().then(function(Ammo){
         console.log("y velocity: " + player.getYVel());
         */
     }, 1000)
+
+    /*
+    var handle = new WorldHandler();
+    handle.start();
+    */
+    
     start();
 
     function start(){
@@ -95,7 +101,6 @@ Ammo().then(function(Ammo){
         cube = new Cube(physicsWorld)
         scene.add(cube.getModel())
         rigidBodies.push(cube.getModel())
-
     }
     
     function render(){
@@ -157,20 +162,6 @@ Ammo().then(function(Ammo){
 
             case 32:
                 player.moveDirection.up = 1;
-                /*
-                let raycaster = new THREE.Raycaster(
-                    new THREE.Vector3(player.getXPos(), player.getYPos(), player.getZPos()),
-                    new THREE.Vector3(0, -1, 0))
-                console.log(raycaster.intersectObjects(scene.children))
-                console.log(Math.abs(raycaster.intersectObjects(scene.children)[0].distance - player.scale.y/2))
-                if (Math.abs(raycaster.intersectObjects(scene.children)[0].distance - player.scale.y/2)
-                    < 0.015){
-                    console.log("can jump" )
-                    player.moveDirection.up = 1;
-                } else {
-                    player.moveDirection.up = 0;
-                }
-                */
                 break;
             
             case 70:
@@ -207,7 +198,7 @@ Ammo().then(function(Ammo){
     } 
 
     function handleMouseDown(event){
-        
+
     }
 
     function setupEventHandlers(){
@@ -222,5 +213,6 @@ Ammo().then(function(Ammo){
       renderer.setSize( window.innerWidth, window.innerHeight );
       render();
     }
+    
 })
 

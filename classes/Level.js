@@ -31,7 +31,7 @@ export default class Level {
 
         let rbInfo = new Ammo.btRigidBodyConstructionInfo( this.mass, motionState, colShape, localInertia );
         let body = new Ammo.btRigidBody( rbInfo );
-        body.setFriction(1);
+        body.setFriction(0.1);
 
         this.physicsWorld.addRigidBody(body)
     }

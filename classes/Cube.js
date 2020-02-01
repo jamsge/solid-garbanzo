@@ -31,7 +31,7 @@ export default class Cube {
         colShape.calculateLocalInertia( this.mass, localInertia );
         let rbInfo = new Ammo.btRigidBodyConstructionInfo( this.mass, motionState, colShape, localInertia );
         let body = new Ammo.btRigidBody( rbInfo );
-        body.setFriction(20);
+        body.setFriction(1.8);
         body.setDamping(20, 20)
         body.setActivationState( STATE.DISABLE_DEACTIVATION );
         this.physicsWorld.addRigidBody(body);

@@ -10,7 +10,7 @@ export default class Player {
         this.physicsWorld = physicsWorld;
         this.moveDirection = { left: 0, right: 0, forward: 0, back: 0, up: 0};
         this.playerModel = this.playerObject = 
-        new THREE.Mesh(new THREE.BoxBufferGeometry(), new THREE.MeshPhongMaterial({color: 0xff0000}));
+        new THREE.Mesh(new THREE.CylinderGeometry(4,4,4,10), new THREE.MeshPhongMaterial({color: 0xff0000}));
         this.playerModel.position.set(this.pos.x, this.pos.y, this.pos.z);
         this.playerModel.rotation.set(this.quat.x, this.quat.y, this.quat.z);
         this.playerModel.scale.set(this.scale.x, this.scale.y, this.scale.z);
@@ -30,7 +30,7 @@ export default class Player {
         colShape.calculateLocalInertia( this.mass, localInertia );
         let rbInfo = new Ammo.btRigidBodyConstructionInfo( this.mass, motionState, colShape, localInertia );
         let body = new Ammo.btRigidBody( rbInfo );
-        body.setFriction(1);
+        body.setFriction(0.1);
         body.setDamping(0.5, 1000000)
         body.setActivationState( STATE.DISABLE_DEACTIVATION);
         this.physicsWorld.addRigidBody(body);
@@ -66,8 +66,11 @@ export default class Player {
     getYVel(){
         return this.getPhysicsBody().getLinearVelocity().y();
     }
-    getVel(){
+    getVelLength(){
         return this.getPhysicsBody().getLinearVelocity().length();
+    }
+    getVel(){
+        return this.getPhysicsBody().getLinearVelocity();
     }
     setLinearVelocity(x, y, z){
         this.getPhysicsBody().setLinearVelocity(new Ammo.btVector3(x, y, z))
@@ -79,18 +82,50 @@ export default class Player {
         this.getPhysicsBody().applyCentralImpulse(vector);
     }
     isOnGround(){
-        
+        var tempVRayOrigin = new Ammo.btVector3();
+			var tempVRayDest = new Ammo.btVector3();
+			var closestRayResultCallback = new Ammo.ClosestRayResultCallback( tempVRayOrigin, tempVRayDest );
+            var rayCallBack = Ammo.castObject( closestRayResultCallback, Ammo.RayResultCallback );
+
+            rayCallBack.set_m_closestHitFraction(1);
+            rayCallBack.set_m_collisionObject( null );
+
+
+            tempVRayOrigin.setValue( this.getXPos(), this.getYPos(), this.getZPos() );
+            tempVRayDest.setValue( this.getXPos(), this.getYPos()-100, this.getZPos() );
+            closestRayResultCallback.get_m_rayFromWorld().setValue( this.getXPos(), this.getYPos(), this.getZPos() );
+            closestRayResultCallback.get_m_rayToWorld().setValue( this.getXPos(), this.getYPos()-100, this.getZPos() );
+
+            this.physicsWorld.rayTest( tempVRayOrigin, tempVRayDest, closestRayResultCallback );
+            if ( closestRayResultCallback.hasHit() ) {
+                var dist = Math.abs(this.getYPos() - this.scale.y/2 - closestRayResultCallback.get_m_hitPointWorld().y());
+                if (dist < 0.01){
+                    return true;
+                }
+                //if ( intersectionPoint ) {
+                    // var point = closestRayResultCallback.get_m_hitPointWorld();
+                    // intersectionPoint.set( point.x(), point.y(), point.z() );
+                //}
+                // if ( intersectionNormal ) {
+                    // var normal = closestRayResultCallback.get_m_hitNormalWorld();
+                    // intersectionNormal.set( normal.x(), normal.y(), normal.z() );
+                // }
+            }
     }
     controlPlayer(direction){
+        console.log("moving")
         let maxSpeed = 25;
         // if speed limit is surpassed, don't do anything
-        if(Math.abs(this.getVel()) > maxSpeed){
-            this.setLinearVelocity(this.getXVel(), this.getYVel(), this.getZVel());
-            return
+        console.log(this.getVelLength() + 'Hi')
+        if(Math.abs(this.getVelLength()) > maxSpeed){
+            //this.setLinearVelocity(this.getXVel(), this.getYVel(), this.getZVel());
+            //return
+            var vect = this.getVel();
+            console.log(vect);
         }
 
-        let scalingFactor = 40;
-        let jumpScale = 2.5;
+        let scalingFactor = 20;
+        let jumpScale = 1;
         let moveLR =  this.getMoveDirection().right - this.getMoveDirection().left;
         let moveFB =  this.getMoveDirection().forward - this.getMoveDirection().back;
         let moveY =  this.getMoveDirection().up; 
@@ -107,106 +142,38 @@ export default class Player {
         let playerUp = new THREE.Vector3(0, 1, 0);
         let finalVector = new THREE.Vector3(0,0,0);
 
-        // Forwards and backwards vectors
-        if (moveFB === 1){
-            // resultantImpulse = new Ammo.btVector3(direction.x, 0, direction.z)
-            finalVector.add(playerForward);
-        } else if (moveFB === -1){
-            // resultantImpulse = new Ammo.btVector3(-direction.x, 0, -direction.z)
-            finalVector.add(playerBack);
-        }
-
-        // Left and right vectors
-        if (moveLR === 1){
-            finalVector.add(playerRight);
-        } else if (moveLR === -1){
-            finalVector.add(playerLeft);
-        }
-
-
         // ALL THE JUMP CODE IS PROBABLY BROKEN OH MY GOD
         // Jump vectors
-        // console.log(this.getYVel())
-        if (moveY === 1 /*&& Math.abs(this.getYVel()) <= 0.5*/ ){
-
-			var tempVRayOrigin = new Ammo.btVector3();
-			var tempVRayDest = new Ammo.btVector3();
-			var closestRayResultCallback = new Ammo.ClosestRayResultCallback( tempVRayOrigin, tempVRayDest );
-            var rayCallBack = Ammo.castObject( closestRayResultCallback, Ammo.RayResultCallback );
-
-            rayCallBack.set_m_closestHitFraction(1);
-            rayCallBack.set_m_collisionObject( null );
-
-
-            tempVRayOrigin.setValue( this.getXPos(), this.getYPos(), this.getZPos() );
-            tempVRayDest.setValue( this.getXPos(), this.getYPos()-100, this.getZPos() );
-            closestRayResultCallback.get_m_rayFromWorld().setValue( this.getXPos(), this.getYPos(), this.getZPos() );
-            closestRayResultCallback.get_m_rayToWorld().setValue( this.getXPos(), this.getYPos()-100, this.getZPos() );
-
-            this.physicsWorld.rayTest( tempVRayOrigin, tempVRayDest, closestRayResultCallback );
-
-            if ( closestRayResultCallback.hasHit() ) {
-                var dist = Math.abs(this.getYPos() - this.scale.y/2 - closestRayResultCallback.get_m_hitPointWorld().y());
-                console.log(this.getYPos() - this.scale.y/2 - closestRayResultCallback.get_m_hitPointWorld().y())
-                if (dist < 0.05){
-                    this.setLinearVelocity(this.getXVel(), 60, this.getZVel())
-                }
-                //if ( intersectionPoint ) {
-                    // var point = closestRayResultCallback.get_m_hitPointWorld();
-                    // intersectionPoint.set( point.x(), point.y(), point.z() );
-                //}
-                // if ( intersectionNormal ) {
-                    // var normal = closestRayResultCallback.get_m_hitNormalWorld();
-                    // intersectionNormal.set( normal.x(), normal.y(), normal.z() );
-                // }
-            }
-
-            // this.getPhysicsBody().applyForce(new Ammo.btVector3(0, 60, 0), new Ammo.btVector3(0,0,0));
-
-            // this.setLinearVelocity(this.getXVel(), 60, this.getZVel())
-
-            // finalVector.add(playerUp);
-            /*
-            console.log("attempting to jump")
-            // console.log(this.physicsWorld.getDispatcher().getManifoldByIndexInternal(0))
-            
-            let numManifolds = this.physicsWorld.getDispatcher().getNumManifolds();
-            for (var i = 0; i < numManifolds; i++){
-                var contactManifold = this.physicsWorld.getDispatcher().getManifoldByIndexInternal(i);
-                
-                // console.log(body1.getWorldTransform().getOrigin().y());
-                // console.log(body2.getWorldTransform().getOrigin().y())
-
-                var numContacts = contactManifold.getNumContacts();
-                console.log("number of contacts: " + numContacts);
-                if (numContacts > 0){
-                    var objectA = contactManifold.getBody0();
-                    var objectB = contactManifold.getBody1();
-
-                    var otherBody = null;
-                    var sign = 1.0;
-                    console.log(objectA.getUserPointer())
-                    if (objectA.getUserIndex() === this.getPhysicsBody().getUserIndex()){
-                        otherBody = objectA;
-                    } else if (objectB.getUserIndex() === this.getPhysicsBody().getUserIndex()){
-                        otherBody = objectB;
-                    }
-
-                    if (otherBody){
-                        var normal = contactManifold.getContactPoint(0).m_normalWorldOnB.op_mul(sign);
-                        if (normal.length() > 0){
-                            finalVector.add(playerUp);
-                        }
-                    }
-                }
-            }
-            */
+        if (moveY === 1 && this.isOnGround() /*&& Math.abs(this.getYVel()) <= 0.5*/ ){
+            this.setLinearVelocity(this.getXVel(), 60, this.getZVel())
         }
-        // shitty breakage ends here
+
+        // Forwards and backwards vectors
+        // if (this.isOnGround()){
+            if (moveFB === 1){
+                // resultantImpulse = new Ammo.btVector3(direction.x, 0, direction.z)
+                finalVector.add(playerForward);
+            } else if (moveFB === -1){
+                // resultantImpulse = new Ammo.btVector3(-direction.x, 0, -direction.z)
+                finalVector.add(playerBack);
+            }
+    
+            // Left and right vectors
+            if (moveLR === 1){
+                finalVector.add(playerRight);
+            } else if (moveLR === -1){
+                finalVector.add(playerLeft);
+            }
+        // } else {
+        //     return;
+        // }
         
 
         finalVector.normalize();
         let finalVectorBullet = new Ammo.btVector3(finalVector.x, finalVector.y * jumpScale,finalVector.z)
+        if (!this.isOnGround()){
+            scalingFactor *= 0.1;
+        }
         finalVectorBullet.op_mul(scalingFactor);
         this.lockXYZRotation();
         this.applyCentralImpulse( finalVectorBullet );
