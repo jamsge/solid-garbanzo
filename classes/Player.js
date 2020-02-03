@@ -30,7 +30,7 @@ export default class Player {
         colShape.calculateLocalInertia( this.mass, localInertia );
         let rbInfo = new Ammo.btRigidBodyConstructionInfo( this.mass, motionState, colShape, localInertia );
         let body = new Ammo.btRigidBody( rbInfo );
-        body.setFriction(0.1);
+        body.setFriction(0.8);
         body.setDamping(0.5, 1000000)
         body.setActivationState( STATE.DISABLE_DEACTIVATION);
         this.physicsWorld.addRigidBody(body);
@@ -72,9 +72,6 @@ export default class Player {
     getVel(){
         return this.getPhysicsBody().getLinearVelocity();
     }
-    setLinearVelocity(x, y, z){
-        this.getPhysicsBody().setLinearVelocity(new Ammo.btVector3(x, y, z))
-    }
     lockXYZRotation(){
         this.getPhysicsBody().setAngularFactor( 0, 0, 0 );
     }
@@ -113,19 +110,9 @@ export default class Player {
             }
     }
     controlPlayer(direction){
-        console.log("moving")
-        let maxSpeed = 25;
-        // if speed limit is surpassed, don't do anything
-        console.log(this.getVelLength() + 'Hi')
-        if(Math.abs(this.getVelLength()) > maxSpeed){
-            //this.setLinearVelocity(this.getXVel(), this.getYVel(), this.getZVel());
-            //return
-            var vect = this.getVel();
-            console.log(vect);
-        }
-
+        let maxSpeed = 20;
         let scalingFactor = 20;
-        let jumpScale = 1;
+        let jumpScale = 50;
         let moveLR =  this.getMoveDirection().right - this.getMoveDirection().left;
         let moveFB =  this.getMoveDirection().forward - this.getMoveDirection().back;
         let moveY =  this.getMoveDirection().up; 
@@ -134,48 +121,56 @@ export default class Player {
 
         let leftAngle = new THREE.Euler(0, Math.PI/2, 0);
         let rightAngle = new THREE.Euler(0, -Math.PI/2, 0)
-
         let playerForward = new THREE.Vector3(direction.x, 0, direction.z).normalize();
         let playerBack = new THREE.Vector3(-direction.x, 0, -direction.z).normalize();
         let playerLeft = new THREE.Vector3(direction.x, 0, direction.z).normalize().applyEuler(leftAngle);
         let playerRight = new THREE.Vector3(direction.x, 0, direction.z).normalize().applyEuler(rightAngle);
-        let playerUp = new THREE.Vector3(0, 1, 0);
+        let jumpVector = new Ammo.btVector3(0, jumpScale, 0);
         let finalVector = new THREE.Vector3(0,0,0);
+        let jump = false;
 
         // ALL THE JUMP CODE IS PROBABLY BROKEN OH MY GOD
         // Jump vectors
-        if (moveY === 1 && this.isOnGround() /*&& Math.abs(this.getYVel()) <= 0.5*/ ){
-            this.setLinearVelocity(this.getXVel(), 60, this.getZVel())
+
+        if (moveY === 1 && this.isOnGround()){
+            jump = true
         }
 
         // Forwards and backwards vectors
-        // if (this.isOnGround()){
-            if (moveFB === 1){
-                // resultantImpulse = new Ammo.btVector3(direction.x, 0, direction.z)
-                finalVector.add(playerForward);
-            } else if (moveFB === -1){
-                // resultantImpulse = new Ammo.btVector3(-direction.x, 0, -direction.z)
-                finalVector.add(playerBack);
-            }
-    
-            // Left and right vectors
-            if (moveLR === 1){
-                finalVector.add(playerRight);
-            } else if (moveLR === -1){
-                finalVector.add(playerLeft);
-            }
-        // } else {
-        //     return;
-        // }
-        
+        if (moveFB === 1){
+            // resultantImpulse = new Ammo.btVector3(direction.x, 0, direction.z)
+            finalVector.add(playerForward);
+        } else if (moveFB === -1){
+            // resultantImpulse = new Ammo.btVector3(-direction.x, 0, -direction.z)
+            finalVector.add(playerBack);
+        }
 
+        // Left and right vectors
+        if (moveLR === 1){
+            finalVector.add(playerRight);
+        } else if (moveLR === -1){
+            finalVector.add(playerLeft);
+        }
+        
+        
         finalVector.normalize();
-        let finalVectorBullet = new Ammo.btVector3(finalVector.x, finalVector.y * jumpScale,finalVector.z)
+        let finalVectorBullet = new Ammo.btVector3(finalVector.x, 0,finalVector.z)
         if (!this.isOnGround()){
             scalingFactor *= 0.1;
+            this.getPhysicsBody().applyCentralForce(finalVectorBullet.op_mul(100));
+            return;
         }
         finalVectorBullet.op_mul(scalingFactor);
         this.lockXYZRotation();
-        this.applyCentralImpulse( finalVectorBullet );
+        if (jump){
+            finalVectorBullet.op_add(jumpVector);
+            this.getPhysicsBody().setLinearVelocity(finalVectorBullet)
+        }
+        
+        if (this.getVel().length() < maxSpeed - 2){
+            this.getPhysicsBody().applyCentralForce(finalVectorBullet.op_mul(50))
+        } else {
+            this.getPhysicsBody().setLinearVelocity(finalVectorBullet)
+        }
     }
 }
